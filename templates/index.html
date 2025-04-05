@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-10">
+        <div class="card main-card">
+            <div class="card-body">
+                <h1 class="text-center mb-4">
+                    <i class="fas fa-shield-alt"></i> DeepFake Detector
+                </h1>
+                <p class="lead text-center mb-5">
+                    Advanced AI-powered tool to detect manipulated media. Upload your image or video to check its authenticity.
+                </p>
+
+                <!-- Detection Mode Toggle -->
+                <div class="detection-toggle-container text-center mb-4">
+                    <div class="toggle-option-wrapper">
+                        <div class="form-check-inline toggle-option">
+                            <input class="form-check-input detection-mode-toggle" type="radio" name="detectionMode" id="imageMode" value="image" checked>
+                            <label class="form-check-label" for="imageMode">
+                                <i class="fas fa-image"></i> Image Detection
+                            </label>
+                        </div>
+                        <div class="form-check-inline toggle-option">
+                            <input class="form-check-input detection-mode-toggle" type="radio" name="detectionMode" id="videoMode" value="video">
+                            <label class="form-check-label" for="videoMode">
+                                <i class="fas fa-video"></i> Video Detection
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- File Upload Area -->
+                <div class="upload-container">
+                    <div id="upload-area" class="upload-area">
+                        <i class="fas fa-cloud-upload-alt upload-icon"></i>
+                        <h4 class="upload-title">Drag & Drop or Click to Upload</h4>
+                        <p id="upload-formats" class="upload-formats">Accepted formats: .jpg, .jpeg, .png</p>
+                        <input type="file" id="file-input" class="file-input" accept=".jpg,.jpeg,.png">
+                        <div class="upload-btn-wrapper">
+                            <button class="btn btn-primary btn-lg upload-btn pulse-animation">Select File</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- File Preview Area (Initially Hidden) -->
+                <div id="preview-container" class="preview-container" style="display: none;">
+                    <h4 class="preview-title">Preview</h4>
+                    <div class="preview-wrapper">
+                        <!-- Image Preview -->
+                        <img id="image-preview" class="img-preview img-fluid" style="display: none;">
+                        <!-- Video Preview -->
+                        <video id="video-preview" class="video-preview" controls style="display: none;"></video>
+                    </div>
+                    <div class="preview-actions">
+                        <button id="remove-file" class="btn btn-outline-danger">
+                            <i class="fas fa-trash"></i> Remove
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Upload Progress Bar (Initially Hidden) -->
+                <div id="upload-progress-container" class="progress" style="display: none;">
+                    <div id="upload-progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+                </div>
+
+                <!-- Detection Button -->
+                <div class="text-center mt-4 mb-5">
+                    <button id="detect-button" class="btn btn-lg btn-primary" disabled>
+                        <i class="fas fa-search"></i> Detect Deepfake
+                    </button>
+                </div>
+
+                <!-- Results Area (Initially Hidden) -->
+                <div id="results-container" class="results-container" style="display: none;">
+                    <div class="results-title-area">
+                        <h3>Detection Results</h3>
+                        <div class="divider"></div>
+                    </div>
+
+                    <!-- Results Content -->
+                    <div class="row">
+                        <!-- Main Result -->
+                        <div class="col-md-6 mb-4">
+                            <div class="result-card">
+                                <div class="result-header">
+                                    <i class="fas fa-check-circle"></i>
+                                    <h4>Authenticity Check</h4>
+                                </div>
+                                <div id="result-badge-container">
+                                    <div id="result-badge" class="badge animated-fade-in"></div>
+                                </div>
+                                <div class="result-detail">
+                                    <div class="confidence-label">Confidence Score:</div>
+                                    <div class="progress confidence-progress">
+                                        <div id="confidence-bar" class="progress-bar" role="progressbar" style="width: 0%"></div>
+                                    </div>
+                                    <div id="confidence-value" class="confidence-value">0%</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Ethical Score (Only shown for fake media) -->
+                        <div id="ethical-score-container" class="col-md-6 mb-4" style="display: none;">
+                            <div class="result-card">
+                                <div class="result-header">
+                                    <i class="fas fa-balance-scale"></i>
+                                    <h4>Ethical Assessment</h4>
+                                </div>
+                                <div class="text-center my-3">
+                                    <div class="ethical-chart-container">
+                                        <canvas id="ethical-chart"></canvas>
+                                        <div id="ethical-score-center" class="ethical-score-center">0</div>
+                                    </div>
+                                </div>
+                                <div id="ethical-assessment" class="ethical-assessment">
+                                    <div class="ethical-label">Impact Assessment:</div>
+                                    <div id="ethical-text" class="ethical-text">Analyzing potential impact...</div>
+                                </div>
+                                <!-- User Feedback Section -->
+                                <div id="user-feedback-section" class="mt-3" style="display: none;">
+                                    <div class="feedback-header">
+                                        <i class="fas fa-comment-dots"></i>
+                                        <h5>Your Feedback Matters</h5>
+                                    </div>
+                                    <div class="feedback-form">
+                                        <div class="form-group mb-3">
+                                            <label for="reason-select">Why do you think this is a deepfake?</label>
+                                            <select id="reason-select" class="form-select">
+                                                <option value="" selected disabled>Select a reason...</option>
+                                                <!-- Options will be added dynamically -->
+                                            </select>
+                                        </div>
+                                        <div class="form-group mb-3">
+                                            <label for="ethical-score-input">How harmful do you think this deepfake is? (1-10)</label>
+                                            <div class="d-flex">
+                                                <input type="range" class="form-range flex-grow-1" id="ethical-score-input" min="1" max="10" value="5">
+                                                <span id="ethical-score-value" class="ms-2">5</span>
+                                            </div>
+                                            <div class="score-labels d-flex justify-content-between">
+                                                <small>Low impact</small>
+                                                <small>High impact</small>
+                                            </div>
+                                        </div>
+                                        <button id="submit-feedback-btn" class="btn btn-primary w-100">
+                                            Submit Feedback
+                                        </button>
+                                    </div>
+                                    <div id="feedback-success" class="alert alert-success mt-3" style="display: none;">
+                                        Thank you for your feedback! It helps improve our detection system.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Error Alert (Initially Hidden) -->
+                <div id="error-alert" class="alert alert-danger" style="display: none;"></div>
+            </div>
+        </div>
+
+        <!-- Recent Detections Section -->
+        <div id="recent-detections" class="card recent-detections-card">
+            <div class="card-body">
+                <h3 class="card-title">
+                    <i class="fas fa-history"></i> Recent Detections
+                </h3>
+                <p class="text-center text-muted mb-4">Your detection history will appear here</p>
+                <div id="recent-detections-list" class="recent-list">
+                    <!-- Recent detection items will be added here dynamically -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
