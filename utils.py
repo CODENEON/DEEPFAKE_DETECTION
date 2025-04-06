@@ -175,10 +175,10 @@ class DeepfakeFeedback():
         self.detection_id = detection_id
         self.file_name = file_name
         self.is_fake = is_fake
-        self.confidence_score = self.confidence_score
-        self.reason_id = self.reason_id
-        self.ethical_score = self.ethical_score  
-        self.file_type = self.file_type
+        self.confidence_score = confidence_score
+        self.reason_id = reason_id
+        self.ethical_score = ethical_score  
+        self.file_type = file_type
         self.reason_text = reason_text
 
     def get_feedback(self):
@@ -201,7 +201,9 @@ def load_feedback():
     except FileNotFoundError:
         return []
 def save_feedback(feedback_data):
+    print(feedback_data)
     feedback_dict = load_feedback()
+
     print(feedback_data, feedback_dict)
     data = {
             "detection_id": feedback_data['detection_id'],
@@ -212,7 +214,7 @@ def save_feedback(feedback_data):
             "file_type": feedback_data['file_type'],
             "reason_text": feedback_data['reason_text']
         }
-    with open('feedback.json', 'a') as f:
+    with open('feedback.json', 'w') as f:
         file_name = feedback_data['file_name']
         feedback_dict[f'{file_name}'] = data
         json.dump(feedback_dict, f, indent=4)
