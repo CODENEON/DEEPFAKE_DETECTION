@@ -125,49 +125,83 @@ def extract_faces_from_video(video_path, min_face_size=100, device='cpu', num_fr
     cap.release()
     return face_crops
 
-
 DEEPFAKE_REASONS = [
     {
         "id": 1,
-        "text": "Political manipulation or disinformation"
+        "text": "Weird Face"
     },
     {
         "id": 2,
-        "text": "Celebrity impersonation without consent"
+        "text": "Angry Face"
     },
     {
         "id": 3,
-        "text": "Fake news or misleading content"
+        "text": "Happy Face"
     },
     {
         "id": 4,
-        "text": "Harassment or bullying"
+        "text": "Sad Face"
     },
     {
         "id": 5,
-        "text": "Non-consensual intimate content"
+        "text": "Surprised Face"
     },
     {
         "id": 6,
-        "text": "Identity theft or fraud"
+        "text": "Disgusted Face"
     }, 
     {
         "id": 7,
-        "text": "Parody or satire"
+        "text": "Neutral Face"
     },
     {
         "id": 8,
-        "text": "Artistic or creative expression"
-    },
-    {
-        "id": 9,
-        "text": "Educational or demonstration purposes"
-    },
-    {
-        "id": 10,
         "text": "Other (unspecified)"
     }
-]   
+]
+
+# DEEPFAKE_REASONS = [
+#     {
+#         "id": 1,
+#         "text": "Political manipulation or disinformation"
+#     },
+#     {
+#         "id": 2,
+#         "text": "Celebrity impersonation without consent"
+#     },
+#     {
+#         "id": 3,
+#         "text": "Fake news or misleading content"
+#     },
+#     {
+#         "id": 4,
+#         "text": "Harassment or bullying"
+#     },
+#     {
+#         "id": 5,
+#         "text": "Non-consensual intimate content"
+#     },
+#     {
+#         "id": 6,
+#         "text": "Identity theft or fraud"
+#     }, 
+#     {
+#         "id": 7,
+#         "text": "Parody or satire"
+#     },
+#     {
+#         "id": 8,
+#         "text": "Artistic or creative expression"
+#     },
+#     {
+#         "id": 9,
+#         "text": "Educational or demonstration purposes"
+#     },
+#     {
+#         "id": 10,
+#         "text": "Other (unspecified)"
+#     }
+# ]   
 
 class DeepfakeFeedback():
     def __init__(self, detection_id, file_name, is_fake, confidence_score, reason_id, ethical_score, file_type,

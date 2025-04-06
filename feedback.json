@@ -1,20 +1,3 @@
 {
-    "00V8VPXL3V.jpg": {
-        "detection_id": "1743963313846",
-        "is_fake": true,
-        "confidence_score": 64.99597430229187,
-        "reason_id": 7,
-        "ethical_score": 3,
-        "file_type": "image",
-        "reason_text": "Parody or satire"
-    },
-    "008Y48BIX8.jpg": {
-        "detection_id": "1743963418234",
-        "is_fake": true,
-        "confidence_score": 66.64073467254639,
-        "reason_id": 7,
-        "ethical_score": 4,
-        "file_type": "image",
-        "reason_text": "Parody or satire"
-    }
+    
 }
