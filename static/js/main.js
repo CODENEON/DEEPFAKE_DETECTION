@@ -512,6 +512,7 @@ document.addEventListener('DOMContentLoaded', function() {
             return response.json();
         })
         .then(data => {
+            // getting the feedback success message and data
             // Show success message
             feedbackSuccess.style.display = 'block';
             

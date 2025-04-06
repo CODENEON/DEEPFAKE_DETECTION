@@ -170,6 +170,7 @@ def submit_deepfake_feedback():
             reason_text = reason['text']
             break
     
+    
     # Create a new feedback record
     feedback = DeepfakeFeedback(
         is_fake=True,
@@ -179,8 +180,13 @@ def submit_deepfake_feedback():
         reason_id=data['reason_id'] if data.get('reason_id') else None,
         ethical_score=data['ethical_score'] if data.get('ethical_score') else None,
         file_type=data['file_type'] if data.get('file_type') else None,
+        reason_text = reason_text
     )
-    return jsonify({'feedback': feedback.get_feedback()}), 200
+
+    feedback_data = feedback.get_feedback()
+    save_feedback(feedback_data)
+
+    return jsonify({'feedback': feedback_data}), 200
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    app.run(host="0.0.0.0", port=5000, debug=True)

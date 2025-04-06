@@ -5,6 +5,7 @@ from PIL import Image
 import random
 from facenet_pytorch import MTCNN
 import numpy as np
+import json
 
 def get_device():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -169,14 +170,16 @@ DEEPFAKE_REASONS = [
 ]   
 
 class DeepfakeFeedback():
-    def __init__(self, detection_id, file_name, is_fake, confidence_score, reason_id, ethical_score, file_type):
+    def __init__(self, detection_id, file_name, is_fake, confidence_score, reason_id, ethical_score, file_type,
+                 reason_text):
         self.detection_id = detection_id
         self.file_name = file_name
         self.is_fake = is_fake
-        self.confidence_score = None
-        self.reason_id = None
-        self.ethical_score = None   
-        self.file_type = None
+        self.confidence_score = self.confidence_score
+        self.reason_id = self.reason_id
+        self.ethical_score = self.ethical_score  
+        self.file_type = self.file_type
+        self.reason_text = reason_text
 
     def get_feedback(self):
         return {
@@ -186,5 +189,32 @@ class DeepfakeFeedback():
             "confidence_score": self.confidence_score,
             "reason_id": self.reason_id,
             "ethical_score": self.ethical_score,
-            "file_type": self.file_type
+            "file_type": self.file_type,
+            "reason_text": self.reason_text
         }
+    
+def load_feedback():
+    try:
+        with open('feedback.json', 'r') as f:
+            feedback_dict = json.load(f)
+        return feedback_dict
+    except FileNotFoundError:
+        return []
+def save_feedback(feedback_data):
+    feedback_dict = load_feedback()
+    print(feedback_data, feedback_dict)
+    data = {
+            "detection_id": feedback_data['detection_id'],
+            "is_fake": feedback_data['is_fake'],
+            "confidence_score": feedback_data['confidence_score'],
+            "reason_id": feedback_data['reason_id'],
+            "ethical_score": feedback_data['ethical_score'],
+            "file_type": feedback_data['file_type'],
+            "reason_text": feedback_data['reason_text']
+        }
+    with open('feedback.json', 'a') as f:
+        file_name = feedback_data['file_name']
+        feedback_dict[f'{file_name}'] = data
+        json.dump(feedback_dict, f, indent=4)
+
+
