@@ -1178,6 +1178,10 @@ main {
     color: var(--text-color);
 }
 
+.form-check-label {
+    cursor: pointer;
+}
+
 .score-labels {
     font-size: 0.8rem;
     color: var(--muted-text);

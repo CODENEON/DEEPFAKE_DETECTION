@@ -245,11 +245,11 @@ document.addEventListener('DOMContentLoaded', function() {
         // Simulate progress
         let progress = 0;
         progressContainer.style.width = '0%';
+        progressContainer.backgroundColor = '#2871e9';
         const progressInterval = setInterval(() => {
             progress += 1;
             if (progress <= 99) {
                 progressBar.style.width = `${progress}%`;
-                progressContainer.backgroundColor = '#007bff';
                 progressContainer.style.width = `${progress}%`;
             }
         }, 100);
