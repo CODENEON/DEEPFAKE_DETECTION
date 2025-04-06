@@ -169,8 +169,9 @@ DEEPFAKE_REASONS = [
 ]   
 
 class DeepfakeFeedback():
-    def __init__(self, file_path, is_fake, confidence_score, reason_id, ethical_score, file_type):
-        self.file_path = file_path
+    def __init__(self, detection_id, file_name, is_fake, confidence_score, reason_id, ethical_score, file_type):
+        self.detection_id = detection_id
+        self.file_name = file_name
         self.is_fake = is_fake
         self.confidence_score = None
         self.reason_id = None
@@ -179,7 +180,8 @@ class DeepfakeFeedback():
 
     def get_feedback(self):
         return {
-            "file_path": self.file_path,
+            "detection_id": self.detection_id,
+            "file_name": self.file_name,
             "is_fake": self.is_fake,
             "confidence_score": self.confidence_score,
             "reason_id": self.reason_id,

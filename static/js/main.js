@@ -244,10 +244,13 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Simulate progress
         let progress = 0;
+        progressContainer.style.width = '0%';
         const progressInterval = setInterval(() => {
-            progress += 5;
-            if (progress <= 90) {
+            progress += 1;
+            if (progress <= 99) {
                 progressBar.style.width = `${progress}%`;
+                progressContainer.backgroundColor = '#007bff';
+                progressContainer.style.width = `${progress}%`;
             }
         }, 100);
         
@@ -259,6 +262,7 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(response => {
             clearInterval(progressInterval);
             progressBar.style.width = '100%';
+            progressContainer.style.width = '100%';
             
             if (!response.ok) {
                 return response.json().then(err => {
@@ -271,7 +275,6 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(data => {
             // Store the detection data
             currentDetectionData = data;
-            
             // Hide progress after a small delay
             setTimeout(() => {
                 progressContainer.style.display = 'none';
@@ -488,7 +491,8 @@ document.addEventListener('DOMContentLoaded', function() {
             reason_id: parseInt(reasonSelect.value),
             ethical_score: parseInt(ethicalScoreInput.value),
             file_type: currentDetectionData.file_type,
-            confidence_score: currentDetectionData.confidence
+            confidence_score: currentDetectionData.confidence,
+            file_name: currentDetectionData.file_name || currentFile.name,
         };
         
         // Send feedback to server

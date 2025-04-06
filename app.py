@@ -59,7 +59,7 @@ def detect_image():
     file.save(file_path)
     
     model = VITClassifier(model_name_or_path, 2)
-    model.load_state_dict(torch.load("static/saved_models/vit_deep_fake_model_v2.pth"))
+    model.load_state_dict(torch.load("static/saved_models/vit_deep_fake_model_v4.pth"))
     output = detect_deepfake_image(model, file_path, transform_deepfake_infer, get_device())
 
     
@@ -67,11 +67,17 @@ def detect_image():
     result = output["prediction"]
     confidence = output["confidence"]
     ethical_score = output["ethical_score"] # Only for fake results
+    detection_id = str(int(time.time() * 1000))  # Unique ID based on current timestamp
+    file_name = filename
+    file_type = 'image'
     
     # Return the result
     response = {
         'result': result,
-        'confidence': confidence
+        'confidence': confidence,
+        'detection_id': detection_id,
+        'file_name': file_name,
+        'file_type': file_type
     }
     
     if ethical_score is not None:
@@ -106,7 +112,7 @@ def detect_video():
     file.save(file_path)
     
     model = VITClassifier(model_name_or_path, 2)
-    model.load_state_dict(torch.load("static/saved_models/vit_deep_fake_model_v2.pth"))
+    model.load_state_dict(torch.load("static/saved_models/vit_deep_fake_model_v4.pth"))
     output = detect_deepfake_video(model, file_path, transform_deepfake_infer, get_device())
 
     
@@ -114,11 +120,17 @@ def detect_video():
     result = output["prediction"]
     confidence = output["confidence"]
     ethical_score = output["ethical_score"] # Only for fake results
+    detection_id = str(int(time.time() * 1000))  # Unique ID based on current timestamp
+    file_name = filename
+    file_type = 'video'
     
     # Return the result
     response = {
         'result': result,
-        'confidence': confidence
+        'confidence': confidence,
+        'detection_id': detection_id,
+        'file_name': file_name,
+        'file_type': file_type
     }
     
     if ethical_score is not None:
@@ -161,14 +173,14 @@ def submit_deepfake_feedback():
     # Create a new feedback record
     feedback = DeepfakeFeedback(
         is_fake=True,
-        file_path=data['detection_id'],
-        confidence_score=data['confidence_score'],
-        reason_id=data['reason_id'],
-        ethical_score=data['ethical_score'],
-        file_type=data['file_type']
+        detection_id=data['detection_id'] if data.get('detection_id') else None,
+        file_name=data['file_name'] if data.get('file_name') else None,
+        confidence_score=data['confidence_score'] if data.get('confidence_score') else None,
+        reason_id=data['reason_id'] if data.get('reason_id') else None,
+        ethical_score=data['ethical_score'] if data.get('ethical_score') else None,
+        file_type=data['file_type'] if data.get('file_type') else None,
     )
-
-    save_feedback(feedback)
+    return jsonify({'feedback': feedback.get_feedback()}), 200
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(host="0.0.0.0", port=5000)

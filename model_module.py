@@ -2,7 +2,7 @@
 import torch.nn as nn
 from transformers import ViTModel
 
-model_name_or_path = 'google/vit-base-patch32-224-in21k'
+model_name_or_path = 'google/vit-base-patch16-224'
     
 class VITClassifier(nn.Module):
     def __init__(self, model_name , num_classes, freeze_layers = False):
