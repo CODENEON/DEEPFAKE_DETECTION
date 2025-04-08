@@ -21,9 +21,12 @@ class VITClassifier(nn.Module):
                     param.requires_grad = True
         
         self.classifier  = nn.Sequential(
-            nn.Linear(self.vit.config.hidden_size, 128),
+            nn.Linear(self.vit.config.hidden_size, 512),
             nn.ReLU(),
             nn.Dropout(0.3),
+            nn.Linear(512, 128),
+            nn.GELU(),
+            nn.Dropout(0.2),
             nn.Linear(128, num_classes)
         )
     

@@ -59,7 +59,7 @@ def detect_image():
     file.save(file_path)
     
     model = VITClassifier(model_name_or_path, 2)
-    model.load_state_dict(torch.load("static/saved_models/vit_deep_fake_model_v4.pth"))
+    model.load_state_dict(torch.load("static/saved_models/vit_deep_fake_model_v5.pth"))
     output = detect_deepfake_image(model, file_path, transform_deepfake_infer, get_device())
 
     
@@ -112,7 +112,7 @@ def detect_video():
     file.save(file_path)
     
     model = VITClassifier(model_name_or_path, 2)
-    model.load_state_dict(torch.load("static/saved_models/vit_deep_fake_model_v4.pth"))
+    model.load_state_dict(torch.load("static/saved_models/vit_deep_fake_model_v5.pth"))
     output = detect_deepfake_video(model, file_path, transform_deepfake_infer, get_device())
 
     
