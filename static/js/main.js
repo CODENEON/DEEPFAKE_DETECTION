@@ -772,7 +772,6 @@ document.addEventListener('DOMContentLoaded', function() {
             confidence_score: currentDetectionData.confidence,
             categories: categories,
         };
-        console.log(feedbackData);
         
         // Send feedback to server
         fetch("/api/submit-feedback", {
