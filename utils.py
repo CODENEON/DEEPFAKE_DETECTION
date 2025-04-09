@@ -5,7 +5,7 @@ from PIL import Image
 import random
 from facenet_pytorch import MTCNN
 import numpy as np
-import json
+import json,os,time
 
 def get_device():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -125,7 +125,34 @@ def extract_faces_from_video(video_path, min_face_size=100, device='cpu', num_fr
     cap.release()
     return face_crops
 
-DEEPFAKE_REASONS = [
+
+DEEPFAKE_REASONS_GENERAL = [
+    {
+        "id": 1,
+        "text": "Provocative"
+    },
+    {
+        "id": 2,
+        "text": "Non Provocative"
+    },
+    {
+        "id": 3,
+        "text": "Not Sure"
+    }
+]
+
+DEEPFAKE_REASONS_PERSONALITY = [
+    {
+        "id": 1,
+        "text": "Influential"
+    },
+    {
+        "id": 2,
+        "text": "Non Influential"
+    }
+]
+
+DEEPFAKE_REASONS_EMOTIONS = [
     {
         "id": 1,
         "text": "Weird Face"
@@ -160,60 +187,57 @@ DEEPFAKE_REASONS = [
     }
 ]
 
-# DEEPFAKE_REASONS = [
-#     {
-#         "id": 1,
-#         "text": "Political manipulation or disinformation"
-#     },
-#     {
-#         "id": 2,
-#         "text": "Celebrity impersonation without consent"
-#     },
-#     {
-#         "id": 3,
-#         "text": "Fake news or misleading content"
-#     },
-#     {
-#         "id": 4,
-#         "text": "Harassment or bullying"
-#     },
-#     {
-#         "id": 5,
-#         "text": "Non-consensual intimate content"
-#     },
-#     {
-#         "id": 6,
-#         "text": "Identity theft or fraud"
-#     }, 
-#     {
-#         "id": 7,
-#         "text": "Parody or satire"
-#     },
-#     {
-#         "id": 8,
-#         "text": "Artistic or creative expression"
-#     },
-#     {
-#         "id": 9,
-#         "text": "Educational or demonstration purposes"
-#     },
-#     {
-#         "id": 10,
-#         "text": "Other (unspecified)"
-#     }
-# ]   
+DEEPFAKE_REASONS_BROAD = [
+    {
+        "id": 1,
+        "text": "Political manipulation or disinformation"
+    },
+    {
+        "id": 2,
+        "text": "Celebrity impersonation without consent"
+    },
+    {
+        "id": 3,
+        "text": "Fake news or misleading content"
+    },
+    {
+        "id": 4,
+        "text": "Harassment or bullying"
+    },
+    {
+        "id": 5,
+        "text": "Non-consensual intimate content"
+    },
+    {
+        "id": 6,
+        "text": "Identity theft or fraud"
+    }, 
+    {
+        "id": 7,
+        "text": "Parody or satire"
+    },
+    {
+        "id": 8,
+        "text": "Artistic or creative expression"
+    },
+    {
+        "id": 9,
+        "text": "Educational or demonstration purposes"
+    },
+    {
+        "id": 10,
+        "text": "Other (unspecified)"
+    }
+]   
 
 class DeepfakeFeedback():
-    def __init__(self, detection_id, file_name, is_fake, confidence_score, reason_id, ethical_score, file_type,
-                 reason_text):
+    def __init__(self, detection_id, file_name, is_fake, confidence_score, categories, file_type):
         self.detection_id = detection_id
         self.file_name = file_name
         self.is_fake = is_fake
-        self.confidence_score = confidence_score
-        self.reason_id = reason_id
-        self.ethical_score = ethical_score  
+        self.confidence_score = confidence_score 
         self.file_type = file_type
-        self.reason_text = reason_text
+        self.categories = categories
 
     def get_feedback(self):
         return {
@@ -221,36 +245,62 @@ class DeepfakeFeedback():
             "file_name": self.file_name,
             "is_fake": self.is_fake,
             "confidence_score": self.confidence_score,
-            "reason_id": self.reason_id,
-            "ethical_score": self.ethical_score,
             "file_type": self.file_type,
-            "reason_text": self.reason_text
+            "categories": self.categories
         }
     
 def load_feedback():
     try:
         with open('feedback.json', 'r') as f:
-            feedback_dict = json.load(f)
-        return feedback_dict
-    except FileNotFoundError:
-        return []
-def save_feedback(feedback_data):
-    print(feedback_data)
-    feedback_dict = load_feedback()
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
 
-    print(feedback_data, feedback_dict)
-    data = {
+def generate_unique_filename(feedback_category, file_name):
+    if file_name not in feedback_category:
+        return file_name
+
+    base, ext = os.path.splitext(file_name)
+    unique_file_name = f"{base}_{time.strftime('%Y%m%d%H%M%S')}{ext}"
+    
+    while unique_file_name in feedback_category:
+        unique_file_name = f"{base}_{time.strftime('%Y%m%d%H%M%S')}{ext}"
+    return unique_file_name
+
+def save_feedback(feedback_data):
+    try:
+        feedback_dict = load_feedback()
+        
+        base_data = {
             "detection_id": feedback_data['detection_id'],
             "is_fake": feedback_data['is_fake'],
             "confidence_score": feedback_data['confidence_score'],
-            "reason_id": feedback_data['reason_id'],
-            "ethical_score": feedback_data['ethical_score'],
-            "file_type": feedback_data['file_type'],
-            "reason_text": feedback_data['reason_text']
+            "file_type": feedback_data['file_type']
         }
-    with open('feedback.json', 'w') as f:
+        
         file_name = feedback_data['file_name']
-        feedback_dict[f'{file_name}'] = data
-        json.dump(feedback_dict, f, indent=4)
+        categories = feedback_data.get('categories', {})
 
+        for category, values in categories.items():
+            data = base_data.copy()  # Copy to avoid mutable reference issues.
+            data['reason_id'] = values['reason_id']
+            data['reason_text'] = values['reason_text']
+            data['ethical_score'] = values['ethical_score']
+            
+            if category not in feedback_dict:
+                feedback_dict[category] = {}
+            
+            unique_file_name = generate_unique_filename(feedback_dict[category], file_name)
+            
+            feedback_dict[category][unique_file_name] = data
+
+        temp_file = 'feedback_temp.json'
+        with open(temp_file, 'w') as f:
+            json.dump(feedback_dict, f, indent=4)
+        
+        # Atomically replace the original file with the temporary file.
+        os.replace(temp_file, 'feedback.json')
+        
+    except Exception as e:
+        print("Error while saving feedback:", e)
 

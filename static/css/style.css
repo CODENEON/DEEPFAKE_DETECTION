@@ -686,6 +686,10 @@ main {
     animation: slideIn 0.5s ease-out 0.3s both;
 }
 
+.ethical-score-slider {
+    box-shadow: 0 0 .075rem .225rem !important;
+}
+
 @keyframes slideIn {
     from {
         transform: translateX(-10px);
@@ -1155,6 +1159,7 @@ main {
     color: var(--primary-color);
     border-top: 1px solid var(--border-color);
     padding-top: 15px;
+    flex-direction: column;
 }
 
 .feedback-header i {
@@ -1174,7 +1179,12 @@ main {
     margin-bottom: 10px;
 }
 
-.form-select, .form-range {
+.form-select {
+    color: var(--text-color);
+    background-color: var(--card-bg);
+}
+
+.form-range {
     color: var(--text-color);
 }
 
@@ -1192,6 +1202,10 @@ main {
     background-color: rgba(52, 168, 83, 0.1);
     color: var(--success-color);
     border: 1px solid rgba(52, 168, 83, 0.2);
+}
+
+.tab_content {
+    background-color: var(--card-bg);
 }
 
 /* Media Queries */

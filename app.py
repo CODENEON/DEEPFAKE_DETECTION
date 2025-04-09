@@ -146,7 +146,13 @@ def detect_video():
 @app.route('/api/deepfake-reasons', methods=['GET'])
 def get_deepfake_reasons():
     """API endpoint to get all predefined reasons for deepfakes"""
-    return jsonify(DEEPFAKE_REASONS)
+    all_categories = {
+        'general': DEEPFAKE_REASONS_GENERAL,
+        'personality': DEEPFAKE_REASONS_PERSONALITY,
+        'emotions': DEEPFAKE_REASONS_EMOTIONS,
+        'broad': DEEPFAKE_REASONS_BROAD
+    }
+    return jsonify(all_categories)
 
 @app.route('/api/submit-feedback', methods=['POST'])
 def submit_deepfake_feedback():
@@ -154,21 +160,10 @@ def submit_deepfake_feedback():
     data = request.json
     
     # Validate required fields
-    required_fields = ['detection_id', 'reason_id', 'ethical_score', 'file_type', 'confidence_score']
+    required_fields = ['detection_id', 'categories', 'file_type', 'confidence_score']
     for field in required_fields:
         if field not in data:
             return jsonify({'error': f'Missing required field: {field}'}), 400
-    
-    # Validate score range
-    if not 1 <= data['ethical_score'] <= 10:
-        return jsonify({'error': 'Ethical score must be between 1 and 10'}), 400
-    
-    # Find the reason text by ID
-    reason_text = "Unknown reason"
-    for reason in DEEPFAKE_REASONS:
-        if reason['id'] == data['reason_id']:
-            reason_text = reason['text']
-            break
     
     
     # Create a new feedback record
@@ -177,11 +172,11 @@ def submit_deepfake_feedback():
         detection_id=data['detection_id'] if data.get('detection_id') else None,
         file_name=data['file_name'] if data.get('file_name') else None,
         confidence_score=data['confidence_score'] if data.get('confidence_score') else None,
-        reason_id=data['reason_id'] if data.get('reason_id') else None,
-        ethical_score=data['ethical_score'] if data.get('ethical_score') else None,
         file_type=data['file_type'] if data.get('file_type') else None,
-        reason_text = reason_text
+        categories=data['categories'] if data.get('categories') else None
     )
+
+    
 
     feedback_data = feedback.get_feedback()
     save_feedback(feedback_data)

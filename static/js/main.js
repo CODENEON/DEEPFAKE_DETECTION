@@ -24,9 +24,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Feedback elements
     const userFeedbackSection = document.getElementById('user-feedback-section');
-    const reasonSelect = document.getElementById('reason-select');
-    const ethicalScoreInput = document.getElementById('ethical-score-input');
-    const ethicalScoreValue = document.getElementById('ethical-score-value');
+    const reasonSelects = document.querySelectorAll('.reason-select');
+    const categoryScoreInputs = document.querySelectorAll('.category-score-input');
+    const selectedCategoriesSummary = document.getElementById('selected-categories-summary');
     const submitFeedbackBtn = document.getElementById('submit-feedback-btn');
     const feedbackSuccess = document.getElementById('feedback-success');
 
@@ -67,6 +67,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Initialize theme on page load
     initializeTheme();
+    
+    // Initialize ethical score badges for all categories (removed global ethicalScoreValue)
+    // Now using per-category score badges
 
     // Toggle between image and video modes
     modeToggles.forEach(toggle => {
@@ -207,21 +210,69 @@ document.addEventListener('DOMContentLoaded', function() {
         fetch('/api/deepfake-reasons')
             .then(response => response.json())
             .then(data => {
-                // Clear existing options
-                reasonSelect.innerHTML = '<option value="" selected disabled>Select a reason...</option>';
-                
-                // Add each reason as an option
-                data.forEach(reason => {
-                    const option = document.createElement('option');
-                    option.value = reason.id;
-                    option.textContent = reason.text;
-                    reasonSelect.appendChild(option);
-                });
+                // Process each category of reasons
+                if (data.general) {
+                    populateReasonSelect('general-select', data.general);
+                }
+                if (data.emotions) {
+                    populateReasonSelect('emotions-select', data.emotions);
+                }
+                if (data.personality) {
+                    populateReasonSelect('personality-select', data.personality);
+                }
+                if (data.broad) {
+                    populateReasonSelect('broad-select', data.broad);
+                }
             })
             .catch(error => {
                 console.error('Error fetching deepfake reasons:', error);
                 showError('Failed to load deepfake reasons. Please refresh the page.');
             });
+    }
+    
+    function populateReasonSelect(selectId, reasons) {
+        const select = document.getElementById(selectId);
+        if (!select) return;
+        
+        // Clear existing options
+        select.innerHTML = '<option value="" selected disabled>Select a reason...</option>';
+        
+        // Add each reason as an option
+        reasons.forEach(reason => {
+            const option = document.createElement('option');
+            option.value = reason.id;
+            option.textContent = reason.text;
+            select.appendChild(option);
+        });
+        
+        // Add change event listener to each select
+        select.addEventListener('change', function() {
+            const categoryId = this.getAttribute('data-category');
+            const tabButton = document.getElementById(`${categoryId}-tab`);
+            
+            // Add visual indicator to tab if a reason is selected
+            if (this.value) {
+                if (tabButton) {
+                    tabButton.classList.add('text-success');
+                    // Only add icon if it doesn't already have one
+                    if (!tabButton.innerHTML.includes('fa-check-circle')) {
+                        tabButton.innerHTML = `<i class="fas fa-check-circle me-1"></i>${tabButton.textContent}`;
+                    }
+                }
+            } else {
+                // Remove visual indicator if nothing is selected
+                if (tabButton) {
+                    tabButton.classList.remove('text-success');
+                    tabButton.innerHTML = tabButton.textContent.replace('<i class="fas fa-check-circle me-1"></i>', '');
+                }
+            }
+            
+            // Update the categories selected counter
+            updateSelectedCategoriesCounter();
+            
+            // Update the categories summary display
+            updateCategoriesSummary();
+        });
     }
 
     // Detect button
@@ -230,40 +281,34 @@ document.addEventListener('DOMContentLoaded', function() {
             showError('Please select a file first.');
             return;
         }
-        
         // Show progress bar
-        progressContainer.style.display = 'block';
-        progressBar.style.width = '0%';
+        progressContainer.style.display = "block";
+        progressBar.style.width = "0%";
+        progressBar.style.backgroundSize = "200% 100%";
+        progressBar.classList.add("animated-progress");
         
         // Create form data
         const formData = new FormData();
-        formData.append('file', currentFile);
+        formData.append("file", currentFile);
         
         // Determine endpoint based on current mode
-        const endpoint = currentMode === 'image' ? '/detect/image' : '/detect/video';
+        const endpoint = currentMode === "image" ? "/detect/image" : "/detect/video";
         
-        // Simulate progress
+        // Simulate progress more smoothly
         let progress = 0;
-        progressContainer.style.width = '0%';
-        progressContainer.backgroundColor = '#2871e9';
         const progressInterval = setInterval(() => {
-            progress += 1;
-            if (progress <= 99) {
+            progress += (currentMode === "image" ? 3 : 2);
+            if (progress <= 90) {
                 progressBar.style.width = `${progress}%`;
-                progressContainer.style.width = `${progress}%`;
             }
         }, 100);
         
         // Send request to backend
         fetch(endpoint, {
-            method: 'POST',
+            method: "POST",
             body: formData
         })
         .then(response => {
-            clearInterval(progressInterval);
-            progressBar.style.width = '100%';
-            progressContainer.style.width = '100%';
-            
             if (!response.ok) {
                 return response.json().then(err => {
                     throw new Error(err.error || 'Detection failed. Please try again.');
@@ -275,6 +320,7 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(data => {
             // Store the detection data
             currentDetectionData = data;
+            
             // Hide progress after a small delay
             setTimeout(() => {
                 progressContainer.style.display = 'none';
@@ -289,6 +335,19 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (data.result.toLowerCase() === 'fake') {
                     userFeedbackSection.style.display = 'block';
                     feedbackSuccess.style.display = 'none';
+                    
+                    // Reset tab indicators and counter when showing feedback form
+                    const categoryTabs = ['general', 'emotions', 'personality', 'broad'];
+                    categoryTabs.forEach(category => {
+                        const tabButton = document.getElementById(`${category}-tab`);
+                        if (tabButton) {
+                            tabButton.classList.remove('text-success');
+                            tabButton.innerHTML = tabButton.textContent.replace('<i class="fas fa-check-circle me-1"></i>', '');
+                        }
+                    });
+                    
+                    // Reset the counter
+                    updateSelectedCategoriesCounter();
                 } else {
                     userFeedbackSection.style.display = 'none';
                 }
@@ -303,40 +362,65 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Display results
     function displayResults(data) {
-        // Set result badge
+        // Set result badge with animation
         resultBadge.textContent = data.result.toUpperCase();
         resultBadge.className = `badge ${data.result.toLowerCase()} animated-fade-in`;
         
-        // Set confidence score
+        // Set confidence score with animation
         const confidencePercent = data.confidence.toFixed(1);
         confidenceBar.style.width = `${confidencePercent}%`;
         confidenceValue.textContent = `${confidencePercent}%`;
         
-        // Set color based on result
-        confidenceBar.className = `progress-bar bg-${data.result === 'real' ? 'success' : 'danger'}`;
+        // Set color based on result with animation
+        confidenceBar.className = `progress-bar animated-progress bg-${data.result === 'real' ? 'success' : 'danger'}`;
         
-        // Handle ethical score (only for fake media)
+        // Handle ethical score (only show feedback for fake media)
         if (data.result === 'fake' && data.ethical_score !== undefined) {
+            // Display the ethical score component
             ethicalScoreContainer.style.display = 'block';
             ethicalScoreCenter.textContent = Math.round(data.ethical_score);
             
             // Update ethical chart
             updateEthicalChart(data.ethical_score);
             
-            // Set ethical impact text
+            // Set ethical impact text with more detailed analysis
             if (data.ethical_score < 30) {
-                ethicalText.textContent = 'Low concern - Minor manipulation with limited potential harm.';
+                ethicalText.textContent = 'Low concern - Minor manipulation with limited potential harm. This type of deepfake is less likely to cause significant issues.';
             } else if (data.ethical_score < 70) {
-                ethicalText.textContent = 'Moderate concern - Significant manipulation with moderate ethical impact.';
+                ethicalText.textContent = 'Moderate concern - Significant manipulation with potential for ethical impact. This type of deepfake could be misleading in certain contexts.';
             } else {
-                ethicalText.textContent = 'High concern - Severe manipulation with significant potential for harm.';
+                ethicalText.textContent = 'High concern - Severe manipulation with significant potential for harm. This type of deepfake could be used maliciously and requires careful consideration.';
             }
+            
+            // Fetch reasons for deepfake classifications
+            fetchDeepfakeReasons();
+            
+            // Show the user feedback section after a short delay
+            setTimeout(() => {
+                userFeedbackSection.style.display = 'block';
+                
+                // Reset any previous feedback
+                resetFeedbackForm();
+                
+                // Smooth scroll to the feedback section
+                userFeedbackSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 1000);
         } else {
-            ethicalScoreContainer.style.display = 'none';
+            // Show ethical assessment for real media too, but without feedback form
+            ethicalScoreContainer.style.display = 'block';
+            ethicalScoreCenter.textContent = '0';
+            updateEthicalChart(0);
+            ethicalText.textContent = 'No ethical concerns - This media appears to be authentic with no signs of manipulation.';
+            
+            // Hide the feedback section for real media
+            userFeedbackSection.style.display = 'none';
         }
         
         // Show results container
         resultsContainer.style.display = 'block';
+        
+        // Add this detection to recent detections history
+        addToRecentDetections(data);
     }
 
     // Update ethical chart
@@ -467,39 +551,234 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 5000);
     }
     
-    // Ethical score input handling
-    ethicalScoreInput.addEventListener('input', function() {
-        ethicalScoreValue.textContent = this.value;
+    // Per-category ethical score input handling
+    categoryScoreInputs.forEach(input => {
+        input.addEventListener('input', function() {
+            const score = parseInt(this.value);
+            const category = this.getAttribute('data-category');
+            const scoreValueElement = document.getElementById(`${category}-score-value`);
+            
+            if (scoreValueElement) {
+                scoreValueElement.textContent = score;
+                
+                // Update badge color based on score
+                scoreValueElement.className = "badge ms-2";
+                if (score <= 3) {
+                    scoreValueElement.classList.add("bg-success");
+                    scoreValueElement.style.color = "#fff";
+                } else if (score <= 7) {
+                    scoreValueElement.classList.add("bg-warning");
+                    scoreValueElement.style.color = "#000";
+                } else {
+                    scoreValueElement.classList.add("bg-danger");
+                    scoreValueElement.style.color = "#fff";
+                }
+            }
+            
+            // Update the summary of selected categories with scores
+            updateCategoriesSummary();
+        });
     });
+    
+    // Function to update the summary of selected categories with their scores
+    function updateCategoriesSummary() {
+        const categoryTabs = ['general', 'emotions', 'personality', 'broad'];
+        let selectedCategories = [];
+        
+        // Check which categories have been selected
+        for (const category of categoryTabs) {
+            const select = document.getElementById(`${category}-select`);
+            if (select && select.value) {
+                const selectedOption = select.options[select.selectedIndex];
+                const reasonText = selectedOption ? selectedOption.textContent : "";
+                const scoreInput = document.getElementById(`${category}-score-input`);
+                const score = scoreInput ? parseInt(scoreInput.value) : 0;
+                
+                // Add to selected categories
+                selectedCategories.push({
+                    category: category,
+                    reason: reasonText,
+                    score: score
+                });
+            }
+        }
+        
+        // Update the summary UI
+        if (selectedCategories.length > 0) {
+            let summaryHtml = '<ul class="list-group">';
+            
+            selectedCategories.forEach(item => {
+                // Determine badge color based on score
+                let badgeClass = "bg-warning";
+                if (item.score <= 3) {
+                    badgeClass = "bg-success";
+                } else if (item.score >= 8) {
+                    badgeClass = "bg-danger";
+                }
+                
+                // Create list item with category, reason and score
+                summaryHtml += `
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <span class="fw-bold text-capitalize">${item.category}:</span> 
+                            <span class="ms-2">${item.reason}</span>
+                        </div>
+                        <span class="badge ${badgeClass} rounded-pill">${item.score}</span>
+                    </li>
+                `;
+            });
+            
+            summaryHtml += '</ul>';
+            selectedCategoriesSummary.innerHTML = summaryHtml;
+        } else {
+            selectedCategoriesSummary.innerHTML = `
+                <p class="text-center text-muted">
+                    Select categories and provide scores to see a summary here.
+                </p>
+            `;
+        }
+    }
+    
+    // Function to update the counter that shows how many categories have been selected
+    function updateSelectedCategoriesCounter() {
+        const categoryTabs = ['general', 'emotions', 'personality', 'broad'];
+        let selectedCount = 0;
+        
+        for (const category of categoryTabs) {
+            const select = document.getElementById(`${category}-select`);
+            if (select && select.value) {
+                selectedCount++;
+            }
+        }
+        
+        // Update counter in the feedback header
+        const counterElem = document.getElementById('categories-selected-counter');
+        if (counterElem) {
+            counterElem.textContent = selectedCount;
+        }
+    }
+    
+    // Function to reset the feedback form to its initial state
+    function resetFeedbackForm() {
+        // Reset dropdown selections
+        reasonSelects.forEach(select => {
+            select.selectedIndex = 0;
+        });
+        
+        // Reset individual category sliders
+        const categoryTabs = ['general', 'emotions', 'personality', 'broad'];
+        categoryTabs.forEach(category => {
+            // Reset sliders for each category to default value (5)
+            const slider = document.getElementById(`${category}-score-input`);
+            const valueDisplay = document.getElementById(`${category}-score-value`);
+            
+            if (slider) {
+                slider.value = 0;
+            }
+            
+            if (valueDisplay) {
+                valueDisplay.textContent = '0';
+                valueDisplay.className = "badge bg-warning ms-2";
+                valueDisplay.style.color = "#000";
+            }
+            
+            // Reset tab indicators
+            const tabButton = document.getElementById(`${category}-tab`);
+            if (tabButton) {
+                tabButton.classList.remove('text-success');
+                tabButton.innerHTML = tabButton.textContent.replace('<i class="fas fa-check-circle me-1"></i>', '');
+            }
+        });
+        
+        // Reset the selected categories counter
+        updateSelectedCategoriesCounter();
+        
+        // Reset the categories summary section
+        selectedCategoriesSummary.innerHTML = `
+            <p class="text-center text-muted">
+                Select categories and provide scores to see a summary here.
+            </p>
+        `;
+        
+        // Hide success message if visible
+        if (feedbackSuccess) {
+            feedbackSuccess.style.display = 'none';
+        }
+    }
     
     // Submit feedback
     submitFeedbackBtn.addEventListener('click', function() {
+        // Collect feedback from all categories
+        const categories = {};
+        let hasSelection = false;
+        
+        // Check each category for selections
+        const categoryTabs = ['general', 'emotions', 'personality', 'broad'];
+        
+        for (const category of categoryTabs) {
+            const select = document.getElementById(`${category}-select`);
+            if (select && select.value) {
+                hasSelection = true;
+                const selectedOption = select.options[select.selectedIndex];
+                const reasonText = selectedOption ? selectedOption.textContent : "";
+                
+                // Get category-specific score from the slider
+                const scoreInput = document.getElementById(`${category}-score-input`);
+                const categoryScore = scoreInput ? parseInt(scoreInput.value) : 0;
+                
+                // Add to categories data with category-specific score
+                if(parseInt(select.value) != 0){
+                    categories[category] = {
+                        reason_id: parseInt(select.value),
+                        reason_text: reasonText,
+                        ethical_score: categoryScore
+                    };
+                }
+            }
+        }
+        
         // Validate form
-        if (!reasonSelect.value) {
-            showError('Please select a reason for why you think this is a deepfake.');
+        if (!hasSelection) {
+            showError("Please select at least one reason in any category.");
             return;
         }
         
         if (!currentDetectionData) {
-            showError('Detection data not found. Please try again.');
+            showError("Detection data not found. Please try again.");
             return;
         }
         
-        // Prepare feedback data
+        // Get active tab for backward compatibility
+        const activeTab = document.querySelector('.nav-link.active');
+        const activeCategory = activeTab ? activeTab.id.replace('-tab', '') : 'general';
+        const activeSelect = document.getElementById(`${activeCategory}-select`);
+        
+        // Get reason data from active category for backward compatibility
+        let reasonId = 0;
+        let reasonText = "";
+        
+        if (activeSelect && activeSelect.value) {
+            reasonId = parseInt(activeSelect.value);
+            const selectedOption = activeSelect.options[activeSelect.selectedIndex];
+            reasonText = selectedOption ? selectedOption.textContent : "";
+        }
+        
+        // Prepare feedback data with multi-category support
         const feedbackData = {
             detection_id: currentDetectionData.detection_id,
-            reason_id: parseInt(reasonSelect.value),
-            ethical_score: parseInt(ethicalScoreInput.value),
-            file_type: currentDetectionData.file_type,
+            file_name: currentFile ? currentFile.name : 'unknown',
+            file_type: currentMode,
+            is_fake: true,
             confidence_score: currentDetectionData.confidence,
-            file_name: currentDetectionData.file_name || currentFile.name,
+            categories: categories,
         };
+        console.log(feedbackData);
         
         // Send feedback to server
-        fetch('/api/submit-feedback', {
-            method: 'POST',
+        fetch("/api/submit-feedback", {
+            method: "POST",
             headers: {
-                'Content-Type': 'application/json'
+                "Content-Type": "application/json"
             },
             body: JSON.stringify(feedbackData)
         })
@@ -512,14 +791,14 @@ document.addEventListener('DOMContentLoaded', function() {
             return response.json();
         })
         .then(data => {
-            // getting the feedback success message and data
             // Show success message
             feedbackSuccess.style.display = 'block';
             
-            // Reset form
-            reasonSelect.selectedIndex = 0;
-            ethicalScoreInput.value = 5;
-            ethicalScoreValue.textContent = '5';
+            // Reset all form elements
+            resetFeedbackForm();
+            
+            // Update the categories summary
+            updateCategoriesSummary();
             
             // Hide form after 3 seconds
             setTimeout(() => {
