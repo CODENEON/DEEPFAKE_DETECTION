@@ -5,7 +5,7 @@ from PIL import Image
 import random
 from facenet_pytorch import MTCNN
 import numpy as np
-import json,os,time
+import json,os,time, requests
 
 def get_device():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -269,8 +269,9 @@ def generate_unique_filename(feedback_category, file_name):
 
 def save_feedback(feedback_data):
     try:
-        feedback_dict = load_feedback()
-        
+        feedback_json = json.loads(get_latest_feedback_json())
+        feedback_dict = feedback_json['record']
+        print(feedback_dict)
         base_data = {
             "detection_id": feedback_data['detection_id'],
             "is_fake": feedback_data['is_fake'],
@@ -294,13 +295,26 @@ def save_feedback(feedback_data):
             
             feedback_dict[category][unique_file_name] = data
 
-        temp_file = 'feedback_temp.json'
-        with open(temp_file, 'w') as f:
-            json.dump(feedback_dict, f, indent=4)
-        
-        # Atomically replace the original file with the temporary file.
-        os.replace(temp_file, 'feedback.json')
+        update_feedback_json(feedback_dict)
         
     except Exception as e:
         print("Error while saving feedback:", e)
 
+def get_latest_feedback_json():
+    url = 'https://api.jsonbin.io/v3/b/67f690ed8960c979a5817a26/latest'
+    headers = {
+    'X-Master-Key': '$2a$10$LtB0NH4awp0VKCi4WIBrne7uY7C.gNd8UW6hc4ruQibQC4a0ZcwMu'
+    }
+
+    req = requests.get(url, json=None, headers=headers)
+    return req.text
+
+def update_feedback_json(updated_json):
+    url = 'https://api.jsonbin.io/v3/b/67f690ed8960c979a5817a26'
+    headers = {
+    'Content-Type': 'application/json',
+    'X-Master-Key': '$2a$10$LtB0NH4awp0VKCi4WIBrne7uY7C.gNd8UW6hc4ruQibQC4a0ZcwMu'
+    }
+
+    req = requests.put(url, json=updated_json, headers=headers)
+    print(req.text)

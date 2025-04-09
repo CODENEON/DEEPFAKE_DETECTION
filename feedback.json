@@ -26,6 +26,15 @@
             "reason_id": 2,
             "reason_text": "Non Provocative",
             "ethical_score": 2
+        },
+        "008Y48BIX8.jpg": {
+            "detection_id": "1744213900726",
+            "is_fake": true,
+            "confidence_score": 78.12226414680481,
+            "file_type": "image",
+            "reason_id": 2,
+            "reason_text": "Non Provocative",
+            "ethical_score": 2
         }
     },
     "emotions": {
