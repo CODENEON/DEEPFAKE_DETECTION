@@ -17,6 +17,15 @@
             "reason_id": 2,
             "reason_text": "Non Provocative",
             "ethical_score": 2
+        },
+        "ZZSKUAFAQQ.jpg": {
+            "detection_id": "1744210643136",
+            "is_fake": true,
+            "confidence_score": 91.27234220504761,
+            "file_type": "image",
+            "reason_id": 2,
+            "reason_text": "Non Provocative",
+            "ethical_score": 2
         }
     },
     "emotions": {
@@ -37,6 +46,15 @@
             "reason_id": 3,
             "reason_text": "Happy Face",
             "ethical_score": 2
+        },
+        "ZZSKUAFAQQ.jpg": {
+            "detection_id": "1744210643136",
+            "is_fake": true,
+            "confidence_score": 91.27234220504761,
+            "file_type": "image",
+            "reason_id": 3,
+            "reason_text": "Happy Face",
+            "ethical_score": 3
         }
     },
     "personality": {
@@ -48,7 +66,26 @@
             "reason_id": 2,
             "reason_text": "Non Influential",
             "ethical_score": 3
+        },
+        "ZZSKUAFAQQ.jpg": {
+            "detection_id": "1744210643136",
+            "is_fake": true,
+            "confidence_score": 91.27234220504761,
+            "file_type": "image",
+            "reason_id": 2,
+            "reason_text": "Non Influential",
+            "ethical_score": 4
         }
     },
-    "broad": {}
+    "broad": {
+        "ZZSKUAFAQQ.jpg": {
+            "detection_id": "1744210643136",
+            "is_fake": true,
+            "confidence_score": 91.27234220504761,
+            "file_type": "image",
+            "reason_id": 10,
+            "reason_text": "Other (unspecified)",
+            "ethical_score": 1
+        }
+    }
 }
