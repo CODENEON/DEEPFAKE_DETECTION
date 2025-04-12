@@ -6,6 +6,7 @@ import random
 from facenet_pytorch import MTCNN
 import numpy as np
 import json,os,time, requests
+from tqdm import tqdm
 
 def get_device():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -271,7 +272,6 @@ def save_feedback(feedback_data):
     try:
         feedback_json = json.loads(get_latest_feedback_json())
         feedback_dict = feedback_json['record']
-        print(feedback_dict)
         base_data = {
             "detection_id": feedback_data['detection_id'],
             "is_fake": feedback_data['is_fake'],
@@ -318,3 +318,114 @@ def update_feedback_json(updated_json):
 
     req = requests.put(url, json=updated_json, headers=headers)
     print(req.text)
+
+
+def get_json_dictionary():
+    feedback_json = json.loads(get_latest_feedback_json())
+    feedback_dict = feedback_json['record']
+    return feedback_dict
+
+def extract_faces_from_image(image_path, output_folder, min_face_size=100, device='cpu'):
+    if not os.path.exists(output_folder):
+        os.makedirs(output_folder, exist_ok=True)
+
+    detector = MTCNN(keep_all=True, device=device)
+    image_name = os.path.splitext(os.path.basename(image_path))[0]
+
+    # Load and convert image
+    image = cv2.imread(image_path)
+    if image is None:
+        print(f"Failed to load image: {image_path}")
+        return
+
+    rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    faces, _ = detector.detect(rgb_image)
+
+    if faces is None or len(faces) == 0:
+        print("No faces detected.")
+        return
+
+    face_count = 0
+    for i, box in enumerate(faces):
+        x1, y1, x2, y2 = map(int, box)
+
+        # Ensure box is within image boundaries
+        x1, y1 = max(0, x1), max(0, y1)
+        x2, y2 = min(image.shape[1], x2), min(image.shape[0], y2)
+
+        width, height = x2 - x1, y2 - y1
+        if width < min_face_size or height < min_face_size:
+            continue
+
+        face_crop = image[y1:y2, x1:x2]
+        if face_crop.size == 0:
+            continue
+
+        face_filename = os.path.join(output_folder, f"{image_name}_face{i}.jpg")
+        cv2.imwrite(face_filename, face_crop)
+        face_count += 1
+
+    print(f"Done! Extracted {face_count} face(s) from {image_path} to {output_folder}")
+
+
+def extract_faces_from_video(video_path, output_folder, min_face_size=100, device='cpu', num_frames=10):
+    if not os.path.exists(output_folder):
+        os.makedirs(output_folder, exist_ok=True)
+
+    detector = MTCNN(keep_all=True, device=device)
+    cap = cv2.VideoCapture(video_path)
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    video_name = os.path.splitext(os.path.basename(video_path))[0]  # Extract video name safely
+
+    # **Select evenly spaced frames (5 frames across video)**
+    frame_indices = np.linspace(0, total_frames - 1, num_frames, dtype=int)
+
+    # **Find already processed frames**
+    existing_files = {f for f in os.listdir(output_folder) if f.startswith(video_name)}
+    processed_frames = {int(f.split('_frame')[1].split('_')[0]) for f in existing_files if '_frame' in f}
+
+    with tqdm(total=len(frame_indices), desc=f"Processing {video_name}.mp4", unit="frame", dynamic_ncols=True, leave=True) as pbar:
+        for frame_index in frame_indices:
+            if frame_index in processed_frames:
+                pbar.update(1)  # Skip already processed frames
+                continue
+
+            cap.set(cv2.CAP_PROP_POS_FRAMES, frame_index)
+            ret, frame = cap.read()
+            if not ret:
+                continue
+
+            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            faces, _ = detector.detect(rgb_frame)
+
+            # **Skip frame if no faces are detected**
+            if faces is None or len(faces) == 0:
+                pbar.update(1)
+                continue  
+
+            for i, box in enumerate(faces):
+                x1, y1, x2, y2 = map(int, box)
+
+                # **Ensure bounding box is within valid range**
+                x1, y1 = max(0, x1), max(0, y1)
+                x2, y2 = min(frame.shape[1], x2), min(frame.shape[0], y2)
+
+                width, height = x2 - x1, y2 - y1
+
+                # **Skip small faces**
+                if width < min_face_size or height < min_face_size:
+                    continue  
+
+                face_crop = frame[y1:y2, x1:x2]
+
+                # **Avoid saving empty images**
+                if face_crop.size == 0:
+                    continue  
+
+                face_filename = os.path.join(output_folder, f"{video_name}_frame{frame_index}_face{i}.jpg")
+                cv2.imwrite(face_filename, face_crop)
+
+            pbar.update(1)  # Update tqdm progress bar
+
+    cap.release()
+    print(f"Processing complete! Faces saved in {output_folder}")
