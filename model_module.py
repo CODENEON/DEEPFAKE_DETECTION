@@ -1,6 +1,8 @@
 
 import torch.nn as nn
 from transformers import ViTModel
+import torchvision.models as models
+
 
 model_name_or_path = 'google/vit-base-patch16-224'
     
@@ -35,4 +37,33 @@ class VITClassifier(nn.Module):
         output_vit = self.vit(x)
         output_logits = self.classifier(output_vit.last_hidden_state[:, 0])
         return output_logits
+    
+
+def create_resnet18_classifier(num_classes, freeze_pretrained=True, hidden_dim=256, dropout_prob=0.4):
+    model = models.resnet18(weights='IMAGENET1K_V1')
+    if freeze_pretrained:
+        print("Freezing ResNet convolutional base layers.")
+        for param in model.parameters():
+            param.requires_grad = False
+    num_ftrs = model.fc.in_features
+
+    model.fc = nn.Sequential(
+        nn.Linear(num_ftrs, hidden_dim),       
+        nn.BatchNorm1d(hidden_dim),            
+        nn.ReLU(inplace=True),                 
+        nn.Dropout(p=dropout_prob),            
+        nn.Linear(hidden_dim, hidden_dim // 2), 
+        nn.BatchNorm1d(hidden_dim // 2),
+        nn.ReLU(inplace=True),
+        nn.Dropout(p=dropout_prob / 2),      
+
+        nn.Linear(hidden_dim //2, num_classes)   
+    )
+    
+    if freeze_pretrained:
+        print("Ensuring new MLP head parameters are trainable.")
+        for param in model.fc.parameters():
+            param.requires_grad = True
+
+    return model
     

@@ -1,187 +1,192 @@
+# app.py
 import os
 import logging
 from flask import Flask, render_template, request, jsonify
 from werkzeug.utils import secure_filename
 import time
-from model_module import *
-from utils import *
+import torch
+from dotenv import load_dotenv
+import random
 
-# Configure logging
-logging.basicConfig(level=logging.DEBUG)
+from model_module import VITClassifier, model_name_or_path 
+import utils 
 
-# Initialize Flask app
+# --- Configuration ---
+load_dotenv() # Load .env file first
+logging.basicConfig(level=logging.INFO)
+
 app = Flask(__name__)
-app.secret_key = os.environ.get("SESSION_SECRET")
+app.secret_key = os.environ.get("SESSION_SECRET", "a_default_secret_key_for_dev")
 
-# Configure upload folder and allowed extensions
 UPLOAD_FOLDER = 'uploads'
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-# Define allowed file extensions
 ALLOWED_IMAGE_EXTENSIONS = {'jpg', 'jpeg', 'png'}
 ALLOWED_VIDEO_EXTENSIONS = {'mp4', 'mov', 'avi'}
 
-def allowed_file(filename, file_type):
-    """Check if the uploaded file has an allowed extension"""
-    if file_type == 'image':
-        return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_IMAGE_EXTENSIONS
-    elif file_type == 'video':
-        return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_VIDEO_EXTENSIONS
-    return False
+# --- Global Variables & Model Loading (ONCE at startup) ---
+DEVICE = utils.get_device()
+JSONBIN_API_KEY = os.environ.get('JSONBIN_API_KEY')
+JSONBIN_BIN_ID = os.environ.get('JSONBIN_BIN_ID')
 
+if not JSONBIN_API_KEY or not JSONBIN_BIN_ID:
+    logging.warning("JSONBin API Key or Bin ID not found in environment. Feedback saving will fail.")
+
+# Load Binary Detection Model (ViT) - Outside request context
+MODEL_VIT = None
+try:
+    vit_model_path = "static/saved_models/vit_deep_fake_model_v5.pth" # CHECK PATH
+    if os.path.exists(vit_model_path):
+        MODEL_VIT = VITClassifier(model_name_or_path, 2) # Ensure VITClassifier is correctly defined/imported
+        MODEL_VIT.load_state_dict(torch.load(vit_model_path, map_location=DEVICE))
+        MODEL_VIT.to(DEVICE)
+        MODEL_VIT.eval()
+        logging.info(f"ViT model loaded successfully from {vit_model_path} on {DEVICE}.")
+    else:
+        logging.error(f"ViT model file not found at {vit_model_path}. Binary detection will fail.")
+except Exception as e:
+    logging.error(f"Error loading ViT model: {e}", exc_info=True)
+    MODEL_VIT = None # Ensure it's None if loading fails
+
+# Load Ethical Category Models using the util function - Outside request context
+utils.init_ethical_models() # This populates globals and ETHICAL_MODELS_DICT in utils
+# Access loaded models via utils.ETHICAL_MODELS_DICT if needed directly in app
+
+# --- Helper Functions ---
+def allowed_file(filename, file_type):
+    allowed_extensions = ALLOWED_IMAGE_EXTENSIONS if file_type == 'image' else ALLOWED_VIDEO_EXTENSIONS
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in allowed_extensions
+
+# --- Routes ---
 @app.route('/')
 def index():
-    """Render the main page"""
     return render_template('index.html')
 
-@app.route('/detect/image', methods=['POST'])
-def detect_image():
-    """API endpoint for image deepfake detection"""
-    # Check if file is present in request
-    if 'file' not in request.files:
-        return jsonify({'error': 'No file provided'}), 400
-    
-    file = request.files['file']
-    
-    # Check if a file was selected
-    if file.filename == '':
-        return jsonify({'error': 'No file selected'}), 400
-    
-    # Check if file type is allowed
-    if not allowed_file(file.filename, 'image'):
-        return jsonify({'error': 'File type not allowed. Please upload jpg, jpeg, or png'}), 400
-    
-    # Save the file
-    filename = secure_filename(file.filename)
-    file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-    file.save(file_path)
-    
-    model = VITClassifier(model_name_or_path, 2)
-    model.load_state_dict(torch.load("static/saved_models/vit_deep_fake_model_v5.pth"))
-    output = detect_deepfake_image(model, file_path, transform_deepfake_infer, get_device())
+# Combined detection logic helper (Minimal change from previous fix)
+def run_detection(file):
+    is_image = allowed_file(file.filename, 'image')
+    is_video = allowed_file(file.filename, 'video')
+    if not is_image and not is_video: return jsonify({'error': 'Invalid file type.'}), 400
+    file_type = 'image' if is_image else 'video'
 
-    
-    # This would be replaced with actual model prediction
-    result = output["prediction"]
-    confidence = output["confidence"]
-    ethical_score = output["ethical_score"] # Only for fake results
-    detection_id = str(int(time.time() * 1000))  # Unique ID based on current timestamp
-    file_name = filename
-    file_type = 'image'
-    
-    # Return the result
-    response = {
-        'result': result,
-        'confidence': confidence,
-        'detection_id': detection_id,
-        'file_name': file_name,
-        'file_type': file_type
-    }
-    
-    if ethical_score is not None:
-        response['ethical_score'] = ethical_score
-    
-    # Cleanup - remove the uploaded file
-    if os.path.exists(file_path):
-        os.remove(file_path)
-    
-    return jsonify(response)
+    filename = secure_filename(file.filename)
+    # Use a temporary unique name for saving to avoid conflicts during processing
+    temp_filename = f"{int(time.time())}_{random.randint(1000,9999)}_{filename}"
+    file_path = os.path.join(app.config['UPLOAD_FOLDER'], temp_filename)
+
+    try:
+        file.save(file_path)
+        logging.info(f"File saved temporarily to {file_path}")
+
+        # 1. Binary Detection (Real/Fake) using global model
+        binary_result = {"prediction": "unknown", "confidence": 0.0}
+        if MODEL_VIT:
+            # Use the appropriate utils function (detect_deepfake_image or video)
+            if is_image:
+                 binary_result = utils.detect_deepfake_image(MODEL_VIT, file_path, utils.transform_deepfake_infer, DEVICE)
+            else:
+                 binary_result = utils.detect_deepfake_video(MODEL_VIT, file_path, utils.transform_deepfake_infer, DEVICE)
+        else:
+            logging.warning("ViT model not loaded, skipping binary detection.")
+
+        # 2. Ethical Score Calculation using global models (defined in utils)
+        ethical_score = utils.DEFAULT_ETHICAL_SCORE # Default value
+        try:
+            # Call the main ethical scoring function from utils
+            ethical_score = utils.get_ethical_score(file_path)
+        except Exception as e:
+            logging.error(f"Error calculating ethical score for {filename}: {e}", exc_info=True)
+            # Keep default score on error
+
+
+        # 3. Prepare Response
+        detection_id = str(int(time.time() * 1000)) # Use timestamp as ID
+        response = {
+            'result': binary_result['prediction'],
+            'confidence': binary_result['confidence'],
+            'ethical_score': ethical_score, # Use calculated score
+            'detection_id': detection_id,
+            'file_name': filename, # Return original filename to user
+            'file_type': file_type
+        }
+        return jsonify(response), 200
+
+    except Exception as e:
+        logging.error(f"Error during detection process for {filename}: {e}", exc_info=True)
+        return jsonify({'error': 'An error occurred during detection.'}), 500
+    finally:
+        # Cleanup - remove the temporary file
+        if os.path.exists(file_path):
+            try:
+                os.remove(file_path)
+                logging.info(f"Removed temporary file: {file_path}")
+            except Exception as e:
+                logging.error(f"Error removing file {file_path}: {e}")
+
+
+@app.route('/detect/image', methods=['POST'])
+def detect_image_route():
+    if 'file' not in request.files: return jsonify({'error': 'No file provided'}), 400
+    file = request.files['file']
+    if file.filename == '': return jsonify({'error': 'No file selected'}), 400
+    if not allowed_file(file.filename, 'image'): return jsonify({'error': 'File type not allowed'}), 400
+    return run_detection(file)
+
 
 @app.route('/detect/video', methods=['POST'])
-def detect_video():
-    """API endpoint for video deepfake detection"""
-    # Check if file is present in request
-    if 'file' not in request.files:
-        return jsonify({'error': 'No file provided'}), 400
-    
+def detect_video_route():
+    if 'file' not in request.files: return jsonify({'error': 'No file provided'}), 400
     file = request.files['file']
-    
-    # Check if a file was selected
-    if file.filename == '':
-        return jsonify({'error': 'No file selected'}), 400
-    
-    # Check if file type is allowed
-    if not allowed_file(file.filename, 'video'):
-        return jsonify({'error': 'File type not allowed. Please upload mp4, mov, or avi'}), 400
-    
-    # Save the file
-    filename = secure_filename(file.filename)
-    file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-    file.save(file_path)
-    
-    model = VITClassifier(model_name_or_path, 2)
-    model.load_state_dict(torch.load("static/saved_models/vit_deep_fake_model_v5.pth"))
-    output = detect_deepfake_video(model, file_path, transform_deepfake_infer, get_device())
-
-    
-    # This would be replaced with actual model prediction
-    result = output["prediction"]
-    confidence = output["confidence"]
-    ethical_score = output["ethical_score"] # Only for fake results
-    detection_id = str(int(time.time() * 1000))  # Unique ID based on current timestamp
-    file_name = filename
-    file_type = 'video'
-    
-    # Return the result
-    response = {
-        'result': result,
-        'confidence': confidence,
-        'detection_id': detection_id,
-        'file_name': file_name,
-        'file_type': file_type
-    }
-    
-    if ethical_score is not None:
-        response['ethical_score'] = ethical_score
-    
-    # Cleanup - remove the uploaded file
-    if os.path.exists(file_path):
-        os.remove(file_path)
-
-    return jsonify(response)
+    if file.filename == '': return jsonify({'error': 'No file selected'}), 400
+    if not allowed_file(file.filename, 'video'): return jsonify({'error': 'File type not allowed'}), 400
+    return run_detection(file)
 
 
 @app.route('/api/deepfake-reasons', methods=['GET'])
 def get_deepfake_reasons():
-    """API endpoint to get all predefined reasons for deepfakes"""
-    all_categories = {
-        'general': DEEPFAKE_REASONS_GENERAL,
-        'personality': DEEPFAKE_REASONS_PERSONALITY,
-        'emotions': DEEPFAKE_REASONS_EMOTIONS,
-        'broad': DEEPFAKE_REASONS_BROAD
-    }
-    return jsonify(all_categories)
+    # Return definitions directly from utils
+    return jsonify(utils.ALL_CATEGORIES_REASONS)
+
 
 @app.route('/api/submit-feedback', methods=['POST'])
 def submit_deepfake_feedback():
-    """API endpoint to submit user feedback for a detected deepfake"""
+    """API endpoint to submit user feedback"""
     data = request.json
-    
-    # Validate required fields
-    required_fields = ['detection_id', 'categories', 'file_type', 'confidence_score']
-    for field in required_fields:
-        if field not in data:
-            return jsonify({'error': f'Missing required field: {field}'}), 400
-    
-    
-    # Create a new feedback record
-    feedback = DeepfakeFeedback(
-        is_fake=True,
-        detection_id=data['detection_id'] if data.get('detection_id') else None,
-        file_name=data['file_name'] if data.get('file_name') else None,
-        confidence_score=data['confidence_score'] if data.get('confidence_score') else None,
-        file_type=data['file_type'] if data.get('file_type') else None,
-        categories=data['categories'] if data.get('categories') else None
+    if not data: return jsonify({'error': 'No JSON data received'}), 400
+
+    required_fields = ['detection_id', 'file_name', 'file_type', 'confidence_score', 'is_fake', 'categories']
+    missing = [f for f in required_fields if f not in data]
+    if missing: return jsonify({'error': f'Missing fields: {missing}'}), 400
+    if not isinstance(data['categories'], dict) or not data['categories']: return jsonify({'error': '"categories" must be a non-empty dictionary'}), 400
+
+    # Basic validation of categories structure
+    for cat, values in data['categories'].items():
+         if not isinstance(values, dict) or 'reason_id' not in values or 'ethical_score' not in values:
+              return jsonify({'error': f'Invalid structure for category "{cat}".'}), 400
+
+    feedback_obj = utils.DeepfakeFeedback(
+        is_fake=data.get('is_fake', True),
+        detection_id=data['detection_id'],
+        file_name=data['file_name'],
+        confidence_score=data['confidence_score'],
+        file_type=data['file_type'],
+        categories=data['categories']
     )
 
-    
+    # Use the original save feedback logic from utils
+    # It will use the API Key loaded from environment within utils.py
+    utils.save_feedback(feedback_obj.get_feedback())
+    # NOTE: Feedback average scores used by get_ethical_score will only update on app restart!
 
-    feedback_data = feedback.get_feedback()
-    save_feedback(feedback_data)
-
-    return jsonify({'feedback': feedback_data}), 200
+    return jsonify({'message': 'Feedback submitted successfully'}), 200
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    load_dotenv() # Load .env file if present
+
+    # Check if key is loaded before running
+    if not os.environ.get('JSONBIN_API_KEY') or not os.environ.get('JSONBIN_BIN_ID'):
+         logging.warning("### JSONBIN API Key or Bin ID not found in environment variables! Feedback saving/loading WILL FAIL. ###")
+
+    app.run(host="0.0.0.0", port=5000, debug=True) # Turn Debug OFF for production
