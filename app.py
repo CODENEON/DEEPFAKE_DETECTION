@@ -37,7 +37,7 @@ if not JSONBIN_API_KEY or not JSONBIN_BIN_ID:
 # Load Binary Detection Model (ViT) - Outside request context
 MODEL_VIT = None
 try:
-    vit_model_path = "static/saved_models/vit_deep_fake_model_v5.pth" # CHECK PATH
+    vit_model_path = "static/saved_models/vit_deep_fake_model_v5.pth" 
     if os.path.exists(vit_model_path):
         MODEL_VIT = VITClassifier(model_name_or_path, 2) # Ensure VITClassifier is correctly defined/imported
         MODEL_VIT.load_state_dict(torch.load(vit_model_path, map_location=DEVICE))
@@ -106,9 +106,9 @@ def run_detection(file):
         response = {
             'result': binary_result['prediction'],
             'confidence': binary_result['confidence'],
-            'ethical_score': ethical_score, # Use calculated score
+            'ethical_score': ethical_score, 
             'detection_id': detection_id,
-            'file_name': filename, # Return original filename to user
+            'file_name': filename, 
             'file_type': file_type
         }
         return jsonify(response), 200
@@ -146,7 +146,6 @@ def detect_video_route():
 
 @app.route('/api/deepfake-reasons', methods=['GET'])
 def get_deepfake_reasons():
-    # Return definitions directly from utils
     return jsonify(utils.ALL_CATEGORIES_REASONS)
 
 
@@ -178,15 +177,13 @@ def submit_deepfake_feedback():
     # Use the original save feedback logic from utils
     # It will use the API Key loaded from environment within utils.py
     utils.save_feedback(feedback_obj.get_feedback())
-    # NOTE: Feedback average scores used by get_ethical_score will only update on app restart!
 
     return jsonify({'message': 'Feedback submitted successfully'}), 200
 
 if __name__ == "__main__":
-    load_dotenv() # Load .env file if present
+    load_dotenv()
 
-    # Check if key is loaded before running
     if not os.environ.get('JSONBIN_API_KEY') or not os.environ.get('JSONBIN_BIN_ID'):
          logging.warning("### JSONBIN API Key or Bin ID not found in environment variables! Feedback saving/loading WILL FAIL. ###")
 
-    app.run(host="0.0.0.0", port=5000, debug=True) # Turn Debug OFF for production
+    app.run(host="0.0.0.0", port=5000, debug=True)

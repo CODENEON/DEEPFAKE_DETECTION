@@ -384,9 +384,9 @@ document.addEventListener('DOMContentLoaded', function() {
             updateEthicalChart(data.ethical_score);
             
             // Set ethical impact text with more detailed analysis
-            if (data.ethical_score < 30) {
+            if (data.ethical_score > 7) {
                 ethicalText.textContent = 'Low concern - Minor manipulation with limited potential harm. This type of deepfake is less likely to cause significant issues.';
-            } else if (data.ethical_score < 70) {
+            } else if (data.ethical_score > 5) {
                 ethicalText.textContent = 'Moderate concern - Significant manipulation with potential for ethical impact. This type of deepfake could be misleading in certain contexts.';
             } else {
                 ethicalText.textContent = 'High concern - Severe manipulation with significant potential for harm. This type of deepfake could be used maliciously and requires careful consideration.';

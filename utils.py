@@ -219,7 +219,7 @@ class DeepfakeFeedback():
        self.is_fake = is_fake
        self.confidence_score = confidence_score
        self.file_type = file_type
-       self.categories = categories # Dict like {"general": {"reason_id":.. , "ethical_score":..}, ...}
+       self.categories = categories
 
     def get_feedback(self):
        # Prepare data structure expected by original save_feedback
@@ -429,7 +429,7 @@ def init_ethical_models(model_dir="static/saved_models"):
     models_to_load = {
         "general": (len(DEEPFAKE_REASONS_GENERAL), f"{model_dir}/resnet18_general_model.pth"),
         "emotions": (len(DEEPFAKE_REASONS_EMOTIONS), f"{model_dir}/resnet18_emotions_model.pth"),
-        "broad": (len(DEEPFAKE_REASONS_BROAD), None),
+        "broad": (len(DEEPFAKE_REASONS_BROAD), f"{model_dir}/resnet18_broad_model.pth"),
         "personality": (len(DEEPFAKE_REASONS_PERSONALITY), None)
     }
     device = get_device()
@@ -460,12 +460,11 @@ def init_ethical_models(model_dir="static/saved_models"):
 # FIX: Corrected get_ethical_score (essential change)
 def get_ethical_score(file_path):
     """Calculates the combined ethical score using globally loaded models and FEEDBACK_DICT."""
-    global ETHICAL_MODELS_DICT # Access the globally loaded models
+    global ETHICAL_MODELS_DICT
     logging.info(f"--- Calculating ethical score for: {os.path.basename(file_path)} ---")
     device = get_device()
-    transform = transform_deepfake_infer # Use the defined inference transform
-
-    weights = { "general": 0.5, "emotions": 0.5, "personality": 0.0, "broad": 0.0 }
+    transform = transform_deepfake_infer
+    weights = { "general": 0.25, "emotions": 0.25, "personality": 0.0, "broad": 0.25 }
 
     loaded_categories = [cat for cat, model in ETHICAL_MODELS_DICT.items() if model is not None]
     if not loaded_categories:
@@ -474,7 +473,7 @@ def get_ethical_score(file_path):
 
     # Normalize weights only over loaded categories
     total_weight = sum(weights.get(cat, 0) for cat in loaded_categories)
-    if total_weight <= 0: # Prevent division by zero / use equal weights if sum is zero
+    if total_weight <= 0: 
          logging.warning("Sum of weights for loaded categories is zero. Using equal weights.")
          num_loaded = len(loaded_categories)
          weights = {cat: 1.0 / num_loaded for cat in loaded_categories}
@@ -496,7 +495,6 @@ def get_ethical_score(file_path):
             final_score += score_contribution
             logging.debug(f"  Score contribution: {score_contribution:.3f} (Weight: {weights.get(category, 0):.2f})")
         else:
-            # Handle prediction failure - use default score weighted
             logging.warning(f"  Category '{category}': Prediction failed. Using default score {DEFAULT_ETHICAL_SCORE} with weight.")
             score_contribution = weights.get(category, 0) * DEFAULT_ETHICAL_SCORE
             final_score += score_contribution

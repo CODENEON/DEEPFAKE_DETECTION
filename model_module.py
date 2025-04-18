@@ -18,7 +18,7 @@ class VITClassifier(nn.Module):
                 #freezing the vit parameters as training vit is too time consuming
 
             # Unfreeze the last 2 layers for fine-tuning
-            for layer in self.vit.encoder.layer[-2:]:
+            for layer in self.vit.encoder.layer[-4:]:
                 for param in layer.parameters():
                     param.requires_grad = True
         
