@@ -13,3 +13,6 @@ Flask>=2.2.5
 python-dotenv>=1.1.0
 joblib
 requests
+Flask
+gunicorn>=21.2.0
+
